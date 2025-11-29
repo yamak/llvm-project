@@ -693,3 +693,75 @@ class DirectiveInsnJ<dag outs, dag ins, string argstr>
 
   let AsmString = ".insn j " # argstr;
 }
+
+//===----------------------------------------------------------------------===//
+// Mithril PAC (Pointer Authentication Code) instruction classes
+// Hardware-assisted control flow integrity for RISC-V
+//===----------------------------------------------------------------------===//
+
+// pac.store offset(rs1), prs - S-Type: Store 64-bit PAC register to memory
+// Encoding: imm[11:5] | prs(1bit) | rs1 | funct3=010 | imm[4:0] | opcode
+class RvInstPACStore<string opcodestr>
+    : RVInst<(outs), (ins GPR:$rs1, simm12_lo:$imm12, PACR:$prs), 
+             opcodestr, "${imm12}(${rs1}), $prs", [], InstFormatS> {
+  bits<12> imm12;
+  bits<5> rs1;
+  bits<1> prs;  // PAC register select (0=pr0, 1=pr1)
+
+  let Inst{31-25} = imm12{11-5};
+  let Inst{24-20} = {0, 0, 0, 0, prs};
+  let Inst{19-15} = rs1;
+  let Inst{14-12} = 0b010;  // funct3 for pac.store
+  let Inst{11-7}  = imm12{4-0};
+  let Inst{6-0}   = OPC_CUSTOM_0.Value;
+  
+  let hasSideEffects = 1;  // Security-critical, don't optimize
+  let mayLoad = 0;
+  let mayStore = 1;
+}
+
+// pac.load prd, offset(rs1) - I-Type: Load 64-bit PAC register from memory
+// Encoding: imm[11:0] | rs1 | funct3=011 | prd(1bit) | opcode
+class RvInstPACLoad<string opcodestr>
+    : RVInst<(outs PACR:$prd), (ins GPR:$rs1, simm12_lo:$imm12), 
+             opcodestr, "$prd, ${imm12}(${rs1})", [], InstFormatI> {
+  bits<12> imm12;
+  bits<5> rs1;
+  bits<1> prd;  // PAC register select (0=pr0, 1=pr1)
+
+  let Inst{31-20} = imm12;
+  let Inst{19-15} = rs1;
+  let Inst{14-12} = 0b011;  // funct3 for pac.load
+  let Inst{11-7}  = {0, 0, 0, 0, prd};
+  let Inst{6-0}   = OPC_CUSTOM_0.Value;
+  
+  let hasSideEffects = 1;  // Security-critical, don't optimize
+  let mayLoad = 1;
+  let mayStore = 0;
+}
+
+// pac.sign/pac.auth - R-Type: PAC operations with two GPR inputs
+// pac.sign prd, rs1, rs2 - Manual signature generation
+// pac.auth prs, rs1, rs2 - Explicit integrity check (fault on error)
+// Encoding: (unused) | rs2 | rs1 | funct3 | pr(1bit) | opcode
+class RvInstPACRType<bits<3> funct3, string opcodestr>
+    : RVInst<(outs), (ins PACR:$pr, GPR:$rs1, GPR:$rs2), 
+             opcodestr, "$pr, $rs1, $rs2", [], InstFormatR> {
+  bits<5> rs1;
+  bits<5> rs2;
+  bits<1> pr;  // PAC register select (0=pr0, 1=pr1)
+
+  let Inst{31-25} = 0b0000000;  // funct7 unused
+  let Inst{24-20} = rs2;
+  let Inst{19-15} = rs1;
+  let Inst{14-12} = funct3;
+  let Inst{11-7}  = {0, 0, 0, 0, pr};
+  let Inst{6-0}   = OPC_CUSTOM_0.Value;
+  
+  let hasSideEffects = 1;
+  let mayLoad = 0;
+  let mayStore = 0;
+}
+
+
+

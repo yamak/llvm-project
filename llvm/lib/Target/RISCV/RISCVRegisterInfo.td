@@ -881,3 +881,22 @@ let RegInfos = XLenRI in {
   def TRM2 : RISCVRegisterClass<[untyped], 32, (add (decimate TR, 2))>;
   def TRM4 : RISCVRegisterClass<[untyped], 32, (add (decimate TR, 4))>;
 }
+
+//===----------------------------------------------------------------------===//
+// Mithril PAC (Pointer Authentication Code) Registers
+//===----------------------------------------------------------------------===//
+// PAC registers pr0 and pr1 are 64-bit shadow registers used for
+// hardware-assisted control flow integrity.
+//   pr0 (PAC_USER): Stores signatures for standard function call chains
+//   pr1 (PAC_IRQ):  Stores signatures for interrupt/exception chains
+
+let Namespace = "RISCV" in {
+  def PR0 : RISCVReg<0, "pr0">;
+  def PR1 : RISCVReg<1, "pr1">;
+}
+
+// PACR - PAC Register class (64-bit registers for PAC signatures)
+def PACR : RISCVRegisterClass<[i64], 64, (add PR0, PR1)> {
+  let DiagnosticType = "InvalidRegClassPACR";
+  let DiagnosticString = "register must be a PAC register (pr0 or pr1)";
+}

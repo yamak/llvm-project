@@ -176,6 +176,10 @@ void riscv::getRISCVTargetFeatures(const Driver &D, const llvm::Triple &Triple,
     Features.push_back("+unaligned-vector-mem");
   }
 
+  // Handle XPAC return address protection
+  if (Args.hasFlag(options::OPT_mxpac_ret, options::OPT_mno_xpac_ret, false))
+    Features.push_back("+xpac-ret");
+
   // Now add any that the user explicitly requested on the command line,
   // which may override the defaults.
   handleTargetFeaturesGroup(D, Triple, Args, Features,

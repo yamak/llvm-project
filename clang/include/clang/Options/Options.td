@@ -5248,6 +5248,12 @@ def msave_restore : Flag<["-"], "msave-restore">, Group<m_riscv_Features_Group>,
   HelpText<"Enable using library calls for save and restore">;
 def mno_save_restore : Flag<["-"], "mno-save-restore">, Group<m_riscv_Features_Group>,
   HelpText<"Disable using library calls for save and restore">;
+def mxpac_ret : Flag<["-"], "mxpac-ret">, Group<m_riscv_Features_Group>,
+  Visibility<[ClangOption, CC1Option]>,
+  HelpText<"Enable XPAC return address protection for non-leaf functions (RISC-V only)">;
+def mno_xpac_ret : Flag<["-"], "mno-xpac-ret">, Group<m_riscv_Features_Group>,
+  Visibility<[ClangOption, CC1Option]>,
+  HelpText<"Disable XPAC return address protection (RISC-V only)">;
 } // let Flags = [TargetSpecific]
 let Flags = [TargetSpecific] in {
 def menable_experimental_extensions : Flag<["-"], "menable-experimental-extensions">, Group<m_Group>,
