@@ -446,7 +446,9 @@ enum OperandType : unsigned {
   OPERAND_VEC_RM,
   // Vtype operand for XSfmm extension.
   OPERAND_XSFMM_VTYPE,
-  OPERAND_LAST_RISCV_IMM = OPERAND_XSFMM_VTYPE,
+  // XPAC 22-bit unsigned immediate for site ID.
+  OPERAND_UIMM22,
+  OPERAND_LAST_RISCV_IMM = OPERAND_UIMM22,
   // Operand is either a register or uimm5, this is used by V extension pseudo
   // instructions to represent a value that be passed as AVL to either vsetvli
   // or vsetivli.

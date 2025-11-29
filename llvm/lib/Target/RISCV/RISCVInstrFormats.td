@@ -693,3 +693,67 @@ class DirectiveInsnJ<dag outs, dag ins, string argstr>
 
   let AsmString = ".insn j " # argstr;
 }
+
+//===----------------------------------------------------------------------===//
+// Instructions classes for XPAC instructions
+//===----------------------------------------------------------------------===//
+class RvInstXPACStart<string opcodestr>
+    : RVInst<(outs), (ins uimm22:$siteid), opcodestr, "$siteid", [], InstFormatOther> {
+  bits<22> siteid;
+
+  let Inst{31-15} = siteid{21-5};
+  let Inst{14-12} = 0b000; // funct3 for pac.start
+  let Inst{11-7}  = siteid{4-0};
+  let Inst{6-0}   = OPC_CUSTOM_0.Value;
+  
+  let hasSideEffects = 1;
+  let mayLoad = 0;
+  let mayStore = 1;  // Writes PAC to stack
+}
+
+class RvInstXPACEnd<string opcodestr>
+    : RVInst<(outs), (ins uimm22:$siteid), opcodestr, "$siteid", [], InstFormatOther> {
+  bits<22> siteid;
+
+  let Inst{31-15} = siteid{21-5};
+  let Inst{14-12} = 0b001; // funct3 for pac.end
+  let Inst{11-7}  = siteid{4-0};
+  let Inst{6-0}   = OPC_CUSTOM_0.Value;
+  
+  let hasSideEffects = 1;
+  let mayLoad = 1;   // Reads PAC from stack
+  let mayStore = 0;
+}
+
+class RvInstXPACStore<string opcodestr>
+    : RVInst<(outs), (ins simm12_lo:$imm12), opcodestr, "$imm12", [], InstFormatOther> {
+  bits<12> imm12;
+
+  let Inst{31-25} = imm12{11-5};
+  let Inst{24-20} = 0; // don't care
+  let Inst{19-15} = 0; // don't care
+  let Inst{14-12} = 0b010; // funct3
+  let Inst{11-7}  = imm12{4-0};
+  let Inst{6-0}   = OPC_CUSTOM_0.Value;
+  
+  let hasSideEffects = 1;
+  let mayLoad = 0;
+  let mayStore = 1;
+}
+
+class RvInstXPACLoad<string opcodestr>
+    : RVInst<(outs), (ins simm12_lo:$imm12), opcodestr, "$imm12", [], InstFormatOther> {
+  bits<12> imm12;
+
+  let Inst{31-20} = imm12;
+  let Inst{19-15} = 0; // don't care
+  let Inst{14-12} = 0b011; // funct3
+  let Inst{11-7}  = 0; // don't care
+  let Inst{6-0}   = OPC_CUSTOM_0.Value;
+  
+  let hasSideEffects = 1;
+  let mayLoad = 1;
+  let mayStore = 0;
+}
+
+

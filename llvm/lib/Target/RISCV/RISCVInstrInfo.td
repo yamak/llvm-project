@@ -400,6 +400,7 @@ def uimm20_auipc : UImm20OperandMaybeSym {
 }
 
 def uimm20 : RISCVUImmOp<20>;
+def uimm22 : RISCVUImmOp<22>;
 
 def Simm21Lsb0JALAsmOperand : BareSImmNLsb0AsmOperand<21> {
   let ParserMethod = "parseJALOffset";
@@ -2382,6 +2383,7 @@ include "RISCVInstrInfoXMips.td"
 include "RISCVInstrInfoXRivos.td"
 include "RISCVInstrInfoXAndes.td"
 include "RISCVInstrInfoXSpacemiT.td"
+include "RISCVInstrInfoXPAC.td"
 
 //===----------------------------------------------------------------------===//
 // Global ISel

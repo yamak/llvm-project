@@ -1942,3 +1942,14 @@ def FeatureTaggedGlobals : SubtargetFeature<"tagged-globals",
     "AllowTaggedGlobals",
     "true", "Use an instruction sequence for taking the address of a global "
     "that allows a memory tag in the upper address bits">;
+
+
+def FeatureVendorXPAC
+    : RISCVExtension<1, 0, "Pointer Authentication Code"> {
+  let Name = "xpac";
+}
+
+def HasVendorXPAC
+    : Predicate<"Subtarget->hasVendorXPAC()">,
+    AssemblerPredicate<(all_of FeatureVendorXPAC),
+                       "'XPAC' (Pointer Authentication Code)">;
