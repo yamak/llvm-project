@@ -18,8 +18,8 @@
 //===----------------------------------------------------------------------===//
 
 let Predicates = [HasVendorXPAC] in {
+    def PAC_SIGN  : RvInstPACRType<0b000, "pac.sign">;
+    def PAC_AUTH  : RvInstPACRType<0b001, "pac.auth">;
     def PAC_STORE : RvInstPACStore<"pac.store">;
     def PAC_LOAD  : RvInstPACLoad<"pac.load">;
-    def PAC_SIGN  : RvInstPACRType<0b100, "pac.sign">;
-    def PAC_AUTH  : RvInstPACRType<0b101, "pac.auth">;
 }

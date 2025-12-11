@@ -702,8 +702,8 @@ class DirectiveInsnJ<dag outs, dag ins, string argstr>
 // pac.store offset(rs1), prs - S-Type: Store 64-bit PAC register to memory
 // Encoding: imm[11:5] | prs(1bit) | rs1 | funct3=010 | imm[4:0] | opcode
 class RvInstPACStore<string opcodestr>
-    : RVInst<(outs), (ins GPR:$rs1, simm12_lo:$imm12, PACR:$prs), 
-             opcodestr, "${imm12}(${rs1}), $prs", [], InstFormatS> {
+    : RVInst<(outs), (ins PACR:$prs, GPR:$rs1, simm12_lo:$imm12), 
+             opcodestr, "$prs, ${imm12}(${rs1})", [], InstFormatS> {
   bits<12> imm12;
   bits<5> rs1;
   bits<1> prs;  // PAC register select (0=pr0, 1=pr1)

@@ -56,6 +56,8 @@ static constexpr MCPhysReg SPReg = RISCV::X2;
 // The register used to hold the return address.
 static constexpr MCPhysReg RAReg = RISCV::X1;
 
+static constexpr uint32_t XPAC_PAC_SIZE = 8; // 64 bit
+
 // LIst of CSRs that are given a fixed location by save/restore libcalls or
 // Zcmp/Xqccmp Push/Pop. The order in this table indicates the order the
 // registers are saved on the stack. Zcmp uses the reverse order of save/restore
@@ -246,6 +248,42 @@ static void emitSiFiveCLICStackSwap(MachineFunction &MF, MachineBasicBlock &MBB,
 
   // FIXME: CFI Information for this swap.
 }
+
+static void emitXPACStore(MachineFunction &MF, MachineBasicBlock &MBB,
+                          MachineBasicBlock::iterator MBBI,
+                          const DebugLoc &DL) {
+
+  const RISCVSubtarget &STI = MF.getSubtarget<RISCVSubtarget>();
+  if (!STI.enableXPACRet() || !STI.hasVendorXPAC())
+    return;
+  
+  const RISCVInstrInfo *TII = STI.getInstrInfo();  
+
+  BuildMI(MBB, MBBI, DL, TII->get(RISCV::PAC_STORE))
+      .addReg(RISCV::PR0)  // prs - PAC register (source)
+      .addReg(RISCV::X2)   // rs1 - sp (base address)
+      .addImm(0)           // imm12 - offset
+      .setMIFlag(MachineInstr::FrameSetup);
+}
+
+static void emitXPACLoad(MachineFunction &MF, MachineBasicBlock &MBB,
+                          MachineBasicBlock::iterator MBBI,
+                          const DebugLoc &DL) {
+
+  const RISCVSubtarget &STI = MF.getSubtarget<RISCVSubtarget>();
+  if (!STI.enableXPACRet() || !STI.hasVendorXPAC())
+    return;
+  
+  const RISCVInstrInfo *TII = STI.getInstrInfo();  
+
+
+  BuildMI(MBB, MBBI, DL, TII->get(RISCV::PAC_LOAD))
+      .addDef(RISCV::PR0)  // prd (output) - PAC register
+      .addReg(RISCV::X2)   // rs1 (input) - sp
+      .addImm(0)           // imm12 (input) - offset
+      .setMIFlag(MachineInstr::FrameDestroy);
+}
+
 
 static void
 createSiFivePreemptibleInterruptFrameEntries(MachineFunction &MF,
@@ -1063,6 +1101,7 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
     allocateStack(MBB, MBBI, MF, StackSize, RealStackSize, NeedsDwarfCFI,
                   NeedProbe, ProbeSize, DynAllocation,
                   MachineInstr::FrameSetup);
+  emitXPACStore(MF, MBB, MBBI, DL);
 
   // Save SiFive CLIC CSRs into Stack
   emitSiFiveCLICPreemptibleSaves(MF, MBB, MBBI, DL);
@@ -1318,6 +1357,7 @@ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
   MBBI = std::next(FirstScalarCSRRestoreInsn, getUnmanagedCSI(MF, CSI).size());
   CFIBuilder.setInsertPoint(MBBI);
 
+  emitXPACLoad(MF, MBB, MBBI, DL);
   if (getLibCallID(MF, CSI) != -1) {
     // tail __riscv_restore_[0-12] instruction is considered as a terminator,
     // therefore it is unnecessary to place any CFI instructions after it. Just
@@ -1844,6 +1884,11 @@ void RISCVFrameLowering::processFunctionBeforeFrameFinalized(
 
     if (IsLargeFunction && RVFI->getBranchRelaxationScratchFrameIndex() == -1)
       RVFI->setBranchRelaxationScratchFrameIndex(FI);
+  }
+
+  const RISCVSubtarget &STI = MF.getSubtarget<RISCVSubtarget>();
+  if (STI.hasVendorXPAC() && STI.enableXPACRet()) {
+    MFI.CreateStackObject(XPAC_PAC_SIZE, Align(XPAC_PAC_SIZE), false);
   }
 
   unsigned Size = RVFI->getReservedSpillsSize();
