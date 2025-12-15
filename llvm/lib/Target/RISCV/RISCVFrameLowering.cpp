@@ -252,35 +252,52 @@ static void emitSiFiveCLICStackSwap(MachineFunction &MF, MachineBasicBlock &MBB,
 static void emitXPACStore(MachineFunction &MF, MachineBasicBlock &MBB,
                           MachineBasicBlock::iterator MBBI,
                           const DebugLoc &DL) {
-
   const RISCVSubtarget &STI = MF.getSubtarget<RISCVSubtarget>();
   if (!STI.enableXPACRet() || !STI.hasVendorXPAC())
     return;
-  
-  const RISCVInstrInfo *TII = STI.getInstrInfo();  
+
+  auto *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
+  int FrameIndex = RVFI->getXPACFrameIndex();
+  if (FrameIndex < 0)
+    return;
+
+  const RISCVInstrInfo *TII = STI.getInstrInfo();
+  const RISCVFrameLowering *TFL = STI.getFrameLowering();
+
+  Register FrameReg;
+  StackOffset Offset = TFL->getFrameIndexReference(MF, FrameIndex, FrameReg);
+  int64_t ImmOffset = Offset.getFixed();
 
   BuildMI(MBB, MBBI, DL, TII->get(RISCV::PAC_STORE))
-      .addReg(RISCV::PR0)  // prs - PAC register (source)
-      .addReg(RISCV::X2)   // rs1 - sp (base address)
-      .addImm(0)           // imm12 - offset
+      .addReg(RISCV::PR0)   // prs - PAC register (source)
+      .addReg(FrameReg)     // rs1 - base address (SP or FP)
+      .addImm(ImmOffset)    // imm12 - offset from frame index
       .setMIFlag(MachineInstr::FrameSetup);
 }
 
 static void emitXPACLoad(MachineFunction &MF, MachineBasicBlock &MBB,
                           MachineBasicBlock::iterator MBBI,
                           const DebugLoc &DL) {
-
   const RISCVSubtarget &STI = MF.getSubtarget<RISCVSubtarget>();
   if (!STI.enableXPACRet() || !STI.hasVendorXPAC())
     return;
-  
-  const RISCVInstrInfo *TII = STI.getInstrInfo();  
 
+  auto *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
+  int FrameIndex = RVFI->getXPACFrameIndex();
+  if (FrameIndex < 0)
+    return;
+
+  const RISCVInstrInfo *TII = STI.getInstrInfo();
+  const RISCVFrameLowering *TFL = STI.getFrameLowering();
+
+  Register FrameReg;
+  StackOffset Offset = TFL->getFrameIndexReference(MF, FrameIndex, FrameReg);
+  int64_t ImmOffset = Offset.getFixed();
 
   BuildMI(MBB, MBBI, DL, TII->get(RISCV::PAC_LOAD))
-      .addDef(RISCV::PR0)  // prd (output) - PAC register
-      .addReg(RISCV::X2)   // rs1 (input) - sp
-      .addImm(0)           // imm12 (input) - offset
+      .addDef(RISCV::PR0)   // prd (output) - PAC register
+      .addReg(FrameReg)     // rs1 (input) - base address (SP or FP)
+      .addImm(ImmOffset)    // imm12 (input) - offset from frame index
       .setMIFlag(MachineInstr::FrameDestroy);
 }
 
@@ -1101,6 +1118,8 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
     allocateStack(MBB, MBBI, MF, StackSize, RealStackSize, NeedsDwarfCFI,
                   NeedProbe, ProbeSize, DynAllocation,
                   MachineInstr::FrameSetup);
+
+  // Store PAC data to stack if XPAC is enabled
   emitXPACStore(MF, MBB, MBBI, DL);
 
   // Save SiFive CLIC CSRs into Stack
@@ -1357,6 +1376,7 @@ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
   MBBI = std::next(FirstScalarCSRRestoreInsn, getUnmanagedCSI(MF, CSI).size());
   CFIBuilder.setInsertPoint(MBBI);
 
+  // Load PAC data from stack if XPAC is enabled
   emitXPACLoad(MF, MBB, MBBI, DL);
   if (getLibCallID(MF, CSI) != -1) {
     // tail __riscv_restore_[0-12] instruction is considered as a terminator,
@@ -1888,7 +1908,8 @@ void RISCVFrameLowering::processFunctionBeforeFrameFinalized(
 
   const RISCVSubtarget &STI = MF.getSubtarget<RISCVSubtarget>();
   if (STI.hasVendorXPAC() && STI.enableXPACRet()) {
-    MFI.CreateStackObject(XPAC_PAC_SIZE, Align(XPAC_PAC_SIZE), false);
+    int FI = MFI.CreateStackObject(XPAC_PAC_SIZE, Align(XPAC_PAC_SIZE), false);
+    RVFI->setXPACFrameIndex(FI);
   }
 
   unsigned Size = RVFI->getReservedSpillsSize();

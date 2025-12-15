@@ -86,6 +86,9 @@ private:
   /// Does it probe the stack for a dynamic allocation?
   bool HasDynamicAllocation = false;
 
+  /// FrameIndex for XPAC PAC data storage.
+  int XPACFrameIndex = -1;
+
 public:
   RISCVMachineFunctionInfo(const Function &F, const RISCVSubtarget *STI);
 
@@ -218,6 +221,9 @@ public:
 
   bool hasDynamicAllocation() const { return HasDynamicAllocation; }
   void setDynamicAllocation() { HasDynamicAllocation = true; }
+
+  int getXPACFrameIndex() const { return XPACFrameIndex; }
+  void setXPACFrameIndex(int FI) { XPACFrameIndex = FI; }
 };
 
 } // end namespace llvm
