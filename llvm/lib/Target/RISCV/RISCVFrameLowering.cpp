@@ -261,6 +261,13 @@ static void emitXPACStore(MachineFunction &MF, MachineBasicBlock &MBB,
   if (FrameIndex < 0)
     return;
 
+  // Only emit for non-leaf functions (those that save RA)
+  std::vector<CalleeSavedInfo> &CSI = MF.getFrameInfo().getCalleeSavedInfo();
+  if (llvm::none_of(CSI, [](CalleeSavedInfo &CSR) { 
+        return CSR.getReg() == RISCV::X1; // RAReg
+      }))
+    return;  // Leaf function - skip PAC store
+
   const RISCVInstrInfo *TII = STI.getInstrInfo();
   const RISCVFrameLowering *TFL = STI.getFrameLowering();
 
@@ -286,6 +293,13 @@ static void emitXPACLoad(MachineFunction &MF, MachineBasicBlock &MBB,
   int FrameIndex = RVFI->getXPACFrameIndex();
   if (FrameIndex < 0)
     return;
+
+  // Only emit for non-leaf functions (those that save RA)
+  std::vector<CalleeSavedInfo> &CSI = MF.getFrameInfo().getCalleeSavedInfo();
+  if (llvm::none_of(CSI, [](CalleeSavedInfo &CSR) { 
+        return CSR.getReg() == RISCV::X1; // RAReg
+      }))
+    return;  // Leaf function - skip PAC load
 
   const RISCVInstrInfo *TII = STI.getInstrInfo();
   const RISCVFrameLowering *TFL = STI.getFrameLowering();
