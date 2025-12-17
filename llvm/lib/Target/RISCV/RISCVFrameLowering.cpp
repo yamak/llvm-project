@@ -1133,9 +1133,6 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
                   NeedProbe, ProbeSize, DynAllocation,
                   MachineInstr::FrameSetup);
 
-  // Store PAC data to stack if XPAC is enabled
-  emitXPACStore(MF, MBB, MBBI, DL);
-
   // Save SiFive CLIC CSRs into Stack
   emitSiFiveCLICPreemptibleSaves(MF, MBB, MBBI, DL);
 
@@ -1175,6 +1172,10 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
     if (NeedsDwarfCFI)
       CFIBuilder.buildDefCFA(FPReg, RVFI->getVarArgsSaveSize());
   }
+
+  // Store PAC data to stack if XPAC is enabled
+  // This must be after FP setup so getFrameIndexReference returns correct offset
+  emitXPACStore(MF, MBB, MBBI, DL);
 
   uint64_t SecondSPAdjustAmount = 0;
   // Emit the second SP adjustment after saving callee saved registers.
@@ -1384,14 +1385,15 @@ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
   if (NeedsDwarfCFI && hasFP(MF))
     CFIBuilder.buildDefCFA(SPReg, RealStackSize);
 
+  // Load PAC data from stack if XPAC is enabled
+  // This must be before CSR restore so FP still has the correct value
+  emitXPACLoad(MF, MBB, FirstScalarCSRRestoreInsn, DL);
+
   // Skip to after the restores of scalar callee-saved registers
   // FIXME: assumes exactly one instruction is used to restore each
   // callee-saved register.
   MBBI = std::next(FirstScalarCSRRestoreInsn, getUnmanagedCSI(MF, CSI).size());
   CFIBuilder.setInsertPoint(MBBI);
-
-  // Load PAC data from stack if XPAC is enabled
-  emitXPACLoad(MF, MBB, MBBI, DL);
   if (getLibCallID(MF, CSI) != -1) {
     // tail __riscv_restore_[0-12] instruction is considered as a terminator,
     // therefore it is unnecessary to place any CFI instructions after it. Just
