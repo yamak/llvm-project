@@ -1173,10 +1173,6 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
       CFIBuilder.buildDefCFA(FPReg, RVFI->getVarArgsSaveSize());
   }
 
-  // Store PAC data to stack if XPAC is enabled
-  // This must be after FP setup so getFrameIndexReference returns correct offset
-  emitXPACStore(MF, MBB, MBBI, DL);
-
   uint64_t SecondSPAdjustAmount = 0;
   // Emit the second SP adjustment after saving callee saved registers.
   if (FirstSPAdjustAmount) {
@@ -1189,6 +1185,11 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
                   NeedProbe, ProbeSize, DynAllocation,
                   MachineInstr::FrameSetup);
   }
+
+  // Store PAC data to stack if XPAC is enabled
+  // This must be after FP setup AND after full stack allocation (SecondSPAdjustAmount)
+  // so getFrameIndexReference returns correct offset and SP is at final position
+  emitXPACStore(MF, MBB, MBBI, DL);
 
   if (RVVStackSize) {
     if (NeedProbe) {
@@ -1348,6 +1349,11 @@ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
     }
   }
 
+  // Load PAC data from stack if XPAC is enabled
+  // This must be BEFORE SecondSPAdjustAmount restore so SP is still at final position
+  // (matching the prologue where PAC is stored AFTER SecondSPAdjustAmount allocation)
+  emitXPACLoad(MF, MBB, FirstScalarCSRRestoreInsn, DL);
+
   if (FirstSPAdjustAmount) {
     uint64_t SecondSPAdjustAmount =
         getStackSizeWithRVVPadding(MF) - FirstSPAdjustAmount;
@@ -1382,12 +1388,9 @@ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
                   getStackAlign());
   }
 
+
   if (NeedsDwarfCFI && hasFP(MF))
     CFIBuilder.buildDefCFA(SPReg, RealStackSize);
-
-  // Load PAC data from stack if XPAC is enabled
-  // This must be before CSR restore so FP still has the correct value
-  emitXPACLoad(MF, MBB, FirstScalarCSRRestoreInsn, DL);
 
   // Skip to after the restores of scalar callee-saved registers
   // FIXME: assumes exactly one instruction is used to restore each
