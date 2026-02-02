@@ -15,9 +15,11 @@
 #include "RISCV.h"
 #include "RISCVInstrInfo.h"
 #include "RISCVSubtarget.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineJumpTableInfo.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 
 #define DEBUG_TYPE "riscv-indrect-branch-tracking"
@@ -96,6 +98,29 @@ bool RISCVIndirectBranchTracking::runOnMachineFunction(MachineFunction &MF) {
       emitLpad(MBB, TII, FixedLabel);
       if (MBB.getAlignment() < LpadAlign)
         MBB.setAlignment(LpadAlign);
+      Changed = true;
+    }
+  }
+
+  // Add LPAD to jump table destination blocks.
+  // Jump table targets need landing pads as they are indirect branch targets.
+  // Even with label=0, the target must have an LPAD instruction.
+  if (MachineJumpTableInfo *MJTI = MF.getJumpTableInfo()) {
+    SmallPtrSet<MachineBasicBlock *, 16> JTTargets;
+    for (const MachineJumpTableEntry &JTE : MJTI->getJumpTables())
+      for (MachineBasicBlock *MBB : JTE.MBBs)
+        JTTargets.insert(MBB);
+
+    for (MachineBasicBlock *MBB : JTTargets) {
+      // Skip if this block already has an LPAD (e.g., it's the entry block
+      // or has address taken).
+      if (!MBB->empty() && MBB->begin()->getOpcode() == RISCV::AUIPC &&
+          MBB->begin()->getOperand(0).getReg() == RISCV::X0)
+        continue;
+
+      emitLpad(*MBB, TII, FixedLabel);
+      if (MBB->getAlignment() < LpadAlign)
+        MBB->setAlignment(LpadAlign);
       Changed = true;
     }
   }
